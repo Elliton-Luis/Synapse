@@ -1,16 +1,22 @@
-# aicommit
+# Synapse
 
-Gerador de mensagens de commit via IA (Groq e OpenRouter).
+Gerador de mensagens de commit de alta precisão via IA (Groq e Gemini). Focado em simplicidade, zero dependências externas e economia extrema de tokens.
 
 ## Estrutura
 
-```
+```text
 synapse/
 ├── main.go
 ├── go.mod
+├── .env                    # Gerado automaticamente (Chaves de API e configs)
+├── commit_pattern.md       # Gerado automaticamente (Regras em Inglês)
+├── commit_pattern_pt.md    # Gerado automaticamente (Regras em Português)
 └── internal/
-    └── ui/
-        └── ui.go       # helpers de terminal
+    ├── ui/
+    │   └── ui.go           # Helpers de interface do terminal
+    └── config/
+        └── config.go       # Gerenciamento de variáveis e setup inicial
+
 ```
 
 ## Roadmap
@@ -25,5 +31,16 @@ synapse/
 ## Como rodar
 
 ```bash
+
 go run .
+
+```
+
+ou
+```bash
+
+go build -o syn .
+
+sudo mv syn /usr/local/bin/
+
 ```
