@@ -9,60 +9,56 @@ import (
 
 const envFile = ".env"
 
-var defaultModels = map[string]string{
-	"groq":       "llama-3.3-70b-versatile",
-	"openrouter": "meta-llama/llama-3.3-70b-instruct:free",
-}
-
 type Config struct {
-	Provider string
-	APIKey   string
-	Model    string
+	GroqKey   string
+	GeminiKey string
 }
 
-// Load tenta carregar o .env. Se não existir, inicia o setup interativo.
 func Load() (*Config, error) {
+	// Se chaves já existem no ambiente do sistema, prioriza elas
+	groqEnv := os.Getenv("GROQ_API_KEY")
+	geminiEnv := os.Getenv("GEMINI_API_KEY")
+	if groqEnv != "" || geminiEnv != "" {
+		return &Config{GroqKey: groqEnv, GeminiKey: geminiEnv}, nil
+	}
+
 	if _, err := os.Stat(envFile); os.IsNotExist(err) {
 		return setup()
 	}
 	return readEnv()
 }
 
-// setup pergunta as configs no terminal e salva o .env
 func setup() (*Config, error) {
 	fmt.Println("\n🔧 Primeira execução! Vamos configurar o Synapse.\n")
+	fmt.Println("  Forneça as chaves de API necessárias (pressione Enter para pular caso não use o provider).")
 
-	provider := prompt("Provider padrão (groq/openrouter)", "groq")
-	if provider != "groq" && provider != "openrouter" {
-		return nil, fmt.Errorf("provider '%s' inválido. Use 'groq' ou 'openrouter'", provider)
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("  GROQ_API_KEY: ")
+	groqKey, _ := reader.ReadString('\n')
+	groqKey = strings.TrimSpace(groqKey)
+
+	fmt.Print("  GEMINI_API_KEY: ")
+	geminiKey, _ := reader.ReadString('\n')
+	geminiKey = strings.TrimSpace(geminiKey)
+
+	if groqKey == "" && geminiKey == "" {
+		return nil, fmt.Errorf("você precisa fornecer pelo menos uma API Key")
 	}
 
-	apiKey := prompt("API Key", "")
-	if apiKey == "" {
-		return nil, fmt.Errorf("API key não pode ser vazia")
+	content := fmt.Sprintf("GROQ_API_KEY=%s\nGEMINI_API_KEY=%s\n", groqKey, geminiKey)
+	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+		return nil, err
 	}
 
-	model := defaultModels[provider]
-
-	if err := writeEnv(provider, apiKey, model); err != nil {
-		return nil, fmt.Errorf("erro ao salvar .env: %w", err)
-	}
-
-	if err := ensureGitignore(); err != nil {
-		return nil, fmt.Errorf("erro ao atualizar .gitignore: %w", err)
-	}
-
-	fmt.Printf("\n✓ .env criado\n")
-	fmt.Printf("✓ .gitignore atualizado\n\n")
-
-	return &Config{Provider: provider, APIKey: apiKey, Model: model}, nil
+	fmt.Printf("\n✓ .env criado com sucesso.\n\n")
+	return &Config{GroqKey: groqKey, GeminiKey: geminiKey}, nil
 }
 
-// readEnv lê o .env e retorna a config
 func readEnv() (*Config, error) {
 	file, err := os.Open(envFile)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao abrir .env: %w", err)
+		return nil, err
 	}
 	defer file.Close()
 
@@ -79,66 +75,8 @@ func readEnv() (*Config, error) {
 		}
 	}
 
-	provider := values["PROVIDER"]
-	apiKey := values["API_KEY"]
-	model := values["MODEL"]
-
-	if provider == "" || apiKey == "" {
-		return nil, fmt.Errorf("PROVIDER ou API_KEY ausente no .env\nDelete o .env e rode novamente para reconfigurar")
-	}
-
-	if model == "" {
-		model = defaultModels[provider]
-	}
-
-	return &Config{Provider: provider, APIKey: apiKey, Model: model}, nil
-}
-
-// writeEnv salva o arquivo .env
-func writeEnv(provider, apiKey, model string) error {
-	content := fmt.Sprintf("PROVIDER=%s\nAPI_KEY=%s\nMODEL=%s\n", provider, apiKey, model)
-	return os.WriteFile(envFile, []byte(content), 0600)
-}
-
-// ensureGitignore adiciona .env ao .gitignore se necessário
-func ensureGitignore() error {
-	gitignorePath := ".gitignore"
-
-	content := ""
-	if data, err := os.ReadFile(gitignorePath); err == nil {
-		content = string(data)
-	}
-
-	if strings.Contains(content, ".env") {
-		return nil
-	}
-
-	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if content != "" && !strings.HasSuffix(content, "\n") {
-		f.WriteString("\n")
-	}
-	f.WriteString("\n# Synapse\n.env\n")
-	return nil
-}
-
-func prompt(label, defaultVal string) string {
-	if defaultVal != "" {
-		fmt.Printf("  %s [%s]: ", label, defaultVal)
-	} else {
-		fmt.Printf("  %s: ", label)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "" {
-		return defaultVal
-	}
-	return input
+	return &Config{
+		GroqKey:   values["GROQ_API_KEY"],
+		GeminiKey: values["GEMINI_API_KEY"],
+	}, nil
 }
