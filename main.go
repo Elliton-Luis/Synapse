@@ -35,7 +35,7 @@ MANDATORY RULES:
 4. Keep the description short, personal, and precise.
 5. Examples of good commits:
    - feat(auth): add JWT validation middleware
-   - fix: resolve null pointer in user config
+   - fix(user.go): resolve null pointer in user config
    - refactor(api): switch to native http client
 6. Return ONLY the final commit message string. Do not use markdown blocks, backticks, or quotes.`
 
@@ -98,7 +98,15 @@ func main() {
 	// 5. Carrega o padrão de commit desejado
 	pattern := loadPattern(*patternFlag)
 
-	basePrompt := fmt.Sprintf("Padrão exigido:\n%s\n\nAnalise o seguinte git diff e gere UMA mensagem de commit:\n%s", pattern, diff)
+	// 🔥 TRAVA DE SEGURANÇA: A exigência do formato exato é a ÚLTIMA coisa do prompt.
+	basePrompt := fmt.Sprintf("Padrão exigido:\n%s\n\nAnalise o seguinte git diff:\n%s\n\n"+
+		"⚠️ REGRA CRÍTICA DE FORMATAÇÃO ⚠️\n"+
+		"Você DEVE retornar a mensagem ESTRITAMENTE no formato:\n"+
+		"tipo: descrição curta\n"+
+		"OU\n"+
+		"tipo(escopo): descrição curta\n\n"+
+		"NUNCA esqueça os dois pontos (:) após o tipo/escopo. Não use aspas, crases ou blocos markdown.", pattern, diff)
+
 	retryCount := 0
 
 	// 6. Loop de geração e interface interativa
@@ -257,20 +265,17 @@ func ensureGitignore() {
 	}
 }
 
+// sanitizeDiff varre o texto ocultando dados críticos e fazendo limpeza extrema de tokens
 func sanitizeDiff(diffText string) string {
-	// 1. Remove metadados inúteis do Git (ex: index 3b2a1f0..a1b2c3d 100644)
 	reIndex := regexp.MustCompile(`(?m)^index [0-9a-fA-F]+\.\.[0-9a-fA-F]+.*$\n?`)
 	diffText = reIndex.ReplaceAllString(diffText, "")
 
-	// 2. Remove linhas que indicam o modo antigo/novo do arquivo (ex: old mode 100644, new mode 100755)
 	reMode := regexp.MustCompile(`(?m)^(old|new) mode [0-9]+$\n?`)
 	diffText = reMode.ReplaceAllString(diffText, "")
 
-	// 3. Oculta dados sensíveis via Regex
 	reCreds := regexp.MustCompile(`(?i)(password|token|api_key|secret)(\s*[:=>]\s*)(['"].*?['"]|[^\s\n\r,;]+)`)
 	diffText = reCreds.ReplaceAllString(diffText, "$1$2[REDACTED]")
 
-	// 4. Remove múltiplas quebras de linha em branco que só ocupam tokens
 	reEmptyLines := regexp.MustCompile(`\n{3,}`)
 	diffText = reEmptyLines.ReplaceAllString(diffText, "\n\n")
 
@@ -283,8 +288,6 @@ func getGitDiff() (string, error) {
 		return "", fmt.Errorf("comando 'git' não encontrado no sistema operacional")
 	}
 
-	// -U1: Reduz o contexto de linhas não alteradas em volta do código de 3 para 1.
-	// :(exclude)...: Ignora arquivos de lock e dependências que explodem a contagem de tokens (Node, PHP, Go).
 	cmd := exec.Command("git", "diff", "--cached", "-U1", "--", ".",
 		":(exclude).env",
 		":(exclude)*.env.*",
