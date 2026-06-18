@@ -257,19 +257,43 @@ func ensureGitignore() {
 	}
 }
 
-// sanitizeDiff varre o texto ocultando dados críticos sensíveis via Regex
 func sanitizeDiff(diffText string) string {
-	re := regexp.MustCompile(`(?i)(password|token|api_key|secret)(\s*[:=>]\s*)(['"].*?['"]|[^\s\n\r,;]+)`)
-	return re.ReplaceAllString(diffText, "$1$2[REDACTED]")
+	// 1. Remove metadados inúteis do Git (ex: index 3b2a1f0..a1b2c3d 100644)
+	reIndex := regexp.MustCompile(`(?m)^index [0-9a-fA-F]+\.\.[0-9a-fA-F]+.*$\n?`)
+	diffText = reIndex.ReplaceAllString(diffText, "")
+
+	// 2. Remove linhas que indicam o modo antigo/novo do arquivo (ex: old mode 100644, new mode 100755)
+	reMode := regexp.MustCompile(`(?m)^(old|new) mode [0-9]+$\n?`)
+	diffText = reMode.ReplaceAllString(diffText, "")
+
+	// 3. Oculta dados sensíveis via Regex
+	reCreds := regexp.MustCompile(`(?i)(password|token|api_key|secret)(\s*[:=>]\s*)(['"].*?['"]|[^\s\n\r,;]+)`)
+	diffText = reCreds.ReplaceAllString(diffText, "$1$2[REDACTED]")
+
+	// 4. Remove múltiplas quebras de linha em branco que só ocupam tokens
+	reEmptyLines := regexp.MustCompile(`\n{3,}`)
+	diffText = reEmptyLines.ReplaceAllString(diffText, "\n\n")
+
+	return strings.TrimSpace(diffText)
 }
 
-// getGitDiff executa o comando Git nativo para pegar alterações do stage
+// getGitDiff executa o comando Git nativo para pegar alterações do stage otimizadas
 func getGitDiff() (string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
 		return "", fmt.Errorf("comando 'git' não encontrado no sistema operacional")
 	}
 
-	cmd := exec.Command("git", "diff", "--cached", "--", ".", ":(exclude).env", ":(exclude)*.env.*")
+	// -U1: Reduz o contexto de linhas não alteradas em volta do código de 3 para 1.
+	// :(exclude)...: Ignora arquivos de lock e dependências que explodem a contagem de tokens (Node, PHP, Go).
+	cmd := exec.Command("git", "diff", "--cached", "-U1", "--", ".",
+		":(exclude).env",
+		":(exclude)*.env.*",
+		":(exclude)package-lock.json",
+		":(exclude)yarn.lock",
+		":(exclude)pnpm-lock.yaml",
+		":(exclude)composer.lock",
+		":(exclude)go.sum",
+	)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = os.Stderr
