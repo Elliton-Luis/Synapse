@@ -12,14 +12,20 @@ const envFile = ".env"
 type Config struct {
 	GroqKey   string
 	GeminiKey string
+	Lang      string
 }
 
 func Load() (*Config, error) {
-	// Se chaves já existem no ambiente do sistema, prioriza elas
+	// Prioriza variáveis de ambiente do sistema
 	groqEnv := os.Getenv("GROQ_API_KEY")
 	geminiEnv := os.Getenv("GEMINI_API_KEY")
+	langEnv := os.Getenv("SYNAPSE_LANG")
+
 	if groqEnv != "" || geminiEnv != "" {
-		return &Config{GroqKey: groqEnv, GeminiKey: geminiEnv}, nil
+		if langEnv == "" {
+			langEnv = "en"
+		}
+		return &Config{GroqKey: groqEnv, GeminiKey: geminiEnv, Lang: langEnv}, nil
 	}
 
 	if _, err := os.Stat(envFile); os.IsNotExist(err) {
@@ -46,13 +52,14 @@ func setup() (*Config, error) {
 		return nil, fmt.Errorf("você precisa fornecer pelo menos uma API Key")
 	}
 
-	content := fmt.Sprintf("GROQ_API_KEY=%s\nGEMINI_API_KEY=%s\n", groqKey, geminiKey)
+	// Salva com o idioma inglês por padrão
+	content := fmt.Sprintf("GROQ_API_KEY=%s\nGEMINI_API_KEY=%s\nSYNAPSE_LANG=en\n", groqKey, geminiKey)
 	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
 		return nil, err
 	}
 
 	fmt.Printf("\n✓ .env criado com sucesso.\n\n")
-	return &Config{GroqKey: groqKey, GeminiKey: geminiKey}, nil
+	return &Config{GroqKey: groqKey, GeminiKey: geminiKey, Lang: "en"}, nil
 }
 
 func readEnv() (*Config, error) {
@@ -75,8 +82,42 @@ func readEnv() (*Config, error) {
 		}
 	}
 
+	lang := values["SYNAPSE_LANG"]
+	if lang == "" {
+		lang = "en"
+	}
+
 	return &Config{
 		GroqKey:   values["GROQ_API_KEY"],
 		GeminiKey: values["GEMINI_API_KEY"],
+		Lang:      lang,
 	}, nil
+}
+
+// SetLang atualiza o idioma preferido diretamente no arquivo .env
+func SetLang(lang string) error {
+	file, err := os.Open(envFile)
+	var lines []string
+	found := false
+
+	if err == nil {
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(strings.TrimSpace(line), "SYNAPSE_LANG=") {
+				lines = append(lines, fmt.Sprintf("SYNAPSE_LANG=%s", lang))
+				found = true
+			} else {
+				lines = append(lines, line)
+			}
+		}
+		file.Close()
+	}
+
+	// Se não achou a linha (ou se o arquivo não existia), adiciona a configuração
+	if !found {
+		lines = append(lines, fmt.Sprintf("SYNAPSE_LANG=%s", lang))
+	}
+
+	return os.WriteFile(envFile, []byte(strings.Join(lines, "\n")+"\n"), 0600)
 }
