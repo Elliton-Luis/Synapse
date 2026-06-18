@@ -26,52 +26,32 @@ const (
 )
 
 const defaultPatternEN = `Strictly follow the Conventional Commits specification.
-Allowed types:
-- feat: Indicates that your code is adding a new feature.
-- fix: Indicates that your code is solving a problem (bug fix).
-- docs: Documentation changes (does not include code changes).
-- test: Creation, alteration, or deletion of unit tests.
-- build: Modifications to build files and dependencies.
-- perf: Code changes related to performance improvements.
-- style: Code formatting changes, semicolons, trailing spaces, lint... (no logic changes).
-- refactor: Code refactoring that does not alter functionality.
-- chore: Build tasks, admin configs, packages, .gitignore updates.
-- ci: Continuous integration changes.
-- raw: Changes related to config files, data, parameters.
-- cleanup: Removal of commented code, unnecessary snippets, or general cleanup.
-- remove: Deletion of obsolete files, directories, or features.
+Allowed types: feat, fix, docs, test, build, perf, style, refactor, chore, ci, raw, cleanup, remove.
 
 MANDATORY RULES:
-1. Always write in the IMPERATIVE mood (e.g., "add", "remove", "fix", "update").
-2. Keep it short, personal, and direct.
-3. Ensure extreme precision, NEVER be generic.
-4. The message MUST communicate exactly WHAT changed.
-5. If necessary for context, mention the affected files or components.
-6. Return ONLY the final commit message, without any quotes, markdown formatting, or extra text.`
+1. Write the entire commit message in ENGLISH.
+2. Use the IMPERATIVE mood (e.g., "add feature" not "added feature").
+3. Format strictly as: <type>(<optional scope>): <description>
+4. Keep the description short, personal, and precise.
+5. Examples of good commits:
+   - feat(auth): add JWT validation middleware
+   - fix: resolve null pointer in user config
+   - refactor(api): switch to native http client
+6. Return ONLY the final commit message string. Do not use markdown blocks, backticks, or quotes.`
 
 const defaultPatternPT = `Siga estritamente a especificação do Conventional Commits.
-Tipos permitidos:
-- feat: Indica que seu trecho de código está incluindo um novo recurso.
-- fix: Indica que seu trecho de código está solucionando um problema (bug fix).
-- docs: Mudanças na documentação (Não inclui alterações em código).
-- test: Criação, alteração ou exclusão de testes unitários.
-- build: Modificações em arquivos de build e dependências.
-- perf: Alterações de código relacionadas a performance.
-- style: Formatações de código, semicolons, trailing spaces, lint... (Não inclui alterações lógicas).
-- refactor: Mudanças devido a refatorações que não alteram a funcionalidade.
-- chore: Atualizações de tarefas de build, configurações, pacotes, .gitignore.
-- ci: Mudanças relacionadas a integração contínua.
-- raw: Mudanças relacionadas a arquivos de configurações, dados, parâmetros.
-- cleanup: Remoção de código comentado, trechos desnecessários ou limpeza do código-fonte.
-- remove: Exclusão de arquivos, diretórios ou funcionalidades obsoletas.
+Tipos permitidos: feat, fix, docs, test, build, perf, style, refactor, chore, ci, raw, cleanup, remove.
 
 REGRAS OBRIGATÓRIAS:
-1. Escreva sempre no tempo verbal IMPERATIVO (ex: "adicione", "remova", "atualize", "corrija").
-2. Seja curto, pessoal e direto na comunicação.
-3. Garanta extrema precisão, NUNCA seja genérico na descrição.
-4. A mensagem DEVE comunicar exatamente QUAL foi a mudança.
-5. Se for possível e necessário para o contexto, cite os arquivos ou componentes alterados.
-6. Retorne APENAS a mensagem final do commit, sem aspas, formatação markdown ou texto extra.`
+1. Escreva toda a mensagem em PORTUGUÊS.
+2. Use o tempo verbal IMPERATIVO (ex: "adicione recurso" em vez de "adicionou recurso").
+3. Formate estritamente como: <tipo>(<escopo opcional>): <descrição>
+4. Mantenha a descrição curta, pessoal e precisa.
+5. Exemplos de bons commits:
+   - feat(auth): adicione middleware de validação JWT
+   - fix: corrija erro de ponteiro nulo na config
+   - refactor(api): altere para cliente http nativo
+6. Retorne APENAS a mensagem final do commit. Não use blocos de código markdown, crases ou aspas.`
 
 var debugMode bool
 
@@ -345,7 +325,7 @@ func callGroqAPI(apiKey, model, prompt string) (string, error) {
 	bodyData := payload{
 		Model: model,
 		Messages: []message{
-			{Role: "system", Content: "Você é um gerador estrito de mensagens de commit Git. Retorne APENAS a mensagem final. Sem aspas, sem markdown extra."},
+			{Role: "system", Content: "You are a strict Git commit message generator. Return ONLY the final commit message. No quotes, no markdown, no explanations."},
 			{Role: "user", Content: prompt},
 		},
 		Temperature: 0.5,
@@ -419,7 +399,7 @@ func callGeminiAPI(apiKey, model, prompt string) (string, error) {
 			MaxOutputTokens: 500,
 		},
 		SystemInstruction: systemInst{
-			Parts: []part{{Text: "Você é um gerador estrito de mensagens de commit Git. Retorne APENAS a mensagem final, sem aspas ou explicações adicionais."}},
+			Parts: []part{{Text: "You are a strict Git commit message generator. Return ONLY the final commit message. No quotes, no markdown, no explanations."}},
 		},
 	}
 
